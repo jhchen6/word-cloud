@@ -46,8 +46,8 @@ $(document).ready(function () {
     tmpCtx.translate(480, 300);
     tmpCtx.textAlign = "center";
 
-    $("body").prepend(tmpCanvas);
-    $("body").prepend(canvas);
+    // $("body").prepend(tmpCanvas);
+    // $("body").prepend(canvas);
 
     $("#form").submit(function () {
         init();
@@ -77,26 +77,31 @@ function init() {
 }
 
 function go() {
-    var numPlaced = 0;
 
     prepareWords();
-    words.forEach(function (word) {
+    var numPlaced = 0,
+        len = words.length,
+        word;
+    for (var i = 0; i < len; i++) {
+        word = words[i];
         place(word);
         if (word.placed) {
             numPlaced++;
-            if (numPlaced === max) return false;
+            if (numPlaced == max) break;
         }
-    });
+    }
 
     display();
 }
 
 function prepareWords() {
     //split text into words
-    var rawWords = text.match(/\b(\w+)\b/g);
-    var wordCounts = {};
-
-    rawWords.forEach(function (word) {
+    var rawWords = text.match(/\b(\w+)\b/g),
+        wordCounts = {},
+        len = rawWords.length,
+        word;
+    for (var i = 0; i < len; i++) {
+        word = rawWords[i];
         word = word.toLowerCase();
 
         //leave out too common words like "the"
@@ -108,7 +113,7 @@ function prepareWords() {
         else {
             wordCounts[word]++;
         }
-    });
+    }
 
     for (var wordCount in wordCounts) {
         words.push({ text: wordCount, count: wordCounts[wordCount] });
@@ -126,24 +131,35 @@ function place(word) {
         collision,
         thetaIncrement = Math.PI / 4,
         theta = thetaIncrement,
-        origin = {};
+        origin = {},
+        r2,
+        r2Max;
 
     word.size = calSize(word);
     word.x = (Math.random() * 2 - 1) * 64; // ??
     word.y = (Math.random() * 2 - 1) * 64;
     origin.x = word.x;
     origin.y = word.y;
-    word.rotate = Math.round(Math.random() * angleCount) * angleSlice + angleFrom;
+    r2 = 0;
+    r2Max = Math.max(
+        calR2({ x: -halfCanvasW, y: -halfCanvasH }, origin),
+        calR2({ x: halfCanvasW, y: -halfCanvasH }, origin),
+        calR2({ x: -halfCanvasW, y: halfCanvasH }, origin),
+        calR2({ x: halfCanvasW, y: halfCanvasH }, origin)
+    );
+    word.rotate = Math.floor(Math.random() * angleCount) * angleSlice + angleFrom;
 
     collision = detectCollision(word);
 
-    while (collision.overlap && collision.inScope) {
+    //
+    while (!(!collision.overlap && collision.inScope) && r2 <= r2Max) {
         //calculate the position
         word.x = spiral(theta) * Math.cos(theta) + origin.x;
         word.y = spiral(theta) * Math.sin(theta) + origin.y;
 
         //detect collision
         collision = detectCollision(word);
+        r2 = calR2(word, origin);
         theta += thetaIncrement;
     }
 
@@ -170,6 +186,12 @@ function place(word) {
     // ctx.restore();
 
     word.placed = true;
+}
+
+function calR2(p1, p2) {
+    var dx = p1.x - p2.x;
+    var dy = p1.y - p2.y;
+    return dx * dx + dy * dy;
 }
 
 function detectCollision(word) {
@@ -214,12 +236,12 @@ function detectCollision(word) {
             word.overlap = true;
             return { inScope: true, overlap: true };
         }
-    //     if (tmpPixels[i]) {
-    //         countTmp++;
-    //     }
-    //     if (pixels[i]) {
-    //         count++;
-    //     }
+        //     if (tmpPixels[i]) {
+        //         countTmp++;
+        //     }
+        //     if (pixels[i]) {
+        //         count++;
+        //     }
     }
 
     // console.log(pixels.length, count);
@@ -253,10 +275,13 @@ function calBoundingRect(word) {
 }
 
 function display() {
-    var text;
-    var numPlaced = 0;
-    words.forEach(function (word) {
-        if (word.placed == false) return true;
+    var text,
+        numPlaced = 0,
+        len = words.length,
+        word;
+    for (var i = 0; i < len; i++) {
+        word = words[i];
+        if (word.placed == false) continue;
         text = document.createElementNS(svgNS, "text");
         $(text)
             .attr("transform", 'translate(' + [word.x, word.y] +
@@ -269,7 +294,6 @@ function display() {
             })
             .text(word.text);
         g.appendChild(text);
-        numPlaced++;
 
         // var rect = document.createElementNS(svgNS, "rect");
         // $(rect)
@@ -287,8 +311,9 @@ function display() {
         //     });
         // g.appendChild(rect);
 
-        if (numPlaced === max) return false;
-    });
+        numPlaced++;
+        if (numPlaced == max) break;
+    }
 
     // var circle = document.createElementNS(svgNS, "circle");
     // $(circle)
