@@ -10,11 +10,45 @@ var text,
     angleFrom,
     angleTo,
     words,
+    svg,
+    mask,
     g,
-    constant;
+    constant,
+    svgNS = "http://www.w3.org/2000/svg",
+    canvas,
+    halfCanvasW,
+    halfCanvasH,
+    ctx,
+    radian = Math.PI / 180;
 
+
+var tmpCanvas,
+    tmpCtx;
 $(document).ready(function () {
+    svg = $("svg")[0];
+    mask = $("mask")[0];
     g = $("g")[0];
+
+    canvas = document.createElement("canvas");
+    $(canvas).attr("width", 960)
+        .attr("height", 600);
+    ctx = canvas.getContext("2d");
+    ctx.translate(480, 300);
+    ctx.textAlign = "center";
+
+    halfCanvasW = canvas.width / 2;
+    halfCanvasH = canvas.height / 2;
+
+    tmpCanvas = document.createElement("canvas");
+    $(tmpCanvas).attr("width", 960)
+        .attr("height", 600);
+    tmpCtx = tmpCanvas.getContext("2d");
+    tmpCtx.translate(480, 300);
+    tmpCtx.textAlign = "center";
+
+    $("body").prepend(tmpCanvas);
+    $("body").prepend(canvas);
+
     $("#form").submit(function () {
         init();
         go();
@@ -27,22 +61,28 @@ $(document).ready(function () {
 function init() {
     text = $("#text").val();
     max = +$("#max").val();
-    spiral = $("input[name='spiral']").val();
-    scale = selectScale($("input[name='scale']").val());
+    spiral = spirals[$("input[name='spiral']").val()];
+    scale = scales[$("input[name='scale']").val()];
     font = $("#font").val();
     angleCount = +$("#angle-count").val();
-    angleFrom = +$("#angle-from").val();;
+    angleFrom = +$("#angle-from").val();
+    if (angleFrom < -90) angleFrom = -90;
     angleTo = +$("#angle-to").val();
+    if (angleTo > 90) angleTo = 90;
     words = [];
     g.innerHTML = "";
+    ctx.clearRect(-halfCanvasH, -halfCanvasH, canvas.width, canvas.height);
+    ctx.fillStyle = ctx.strokeStyle = "red";
+    tmpCtx.fillStyle = tmpCtx.strokeStyle = "red";
 }
 
 function go() {
     var numPlaced = 0;
 
     prepareWords();
-    words.forEach(function (word, index) {
-        if (place(word)) {
+    words.forEach(function (word) {
+        place(word);
+        if (word.placed) {
             numPlaced++;
             if (numPlaced === max) return false;
         }
@@ -52,12 +92,14 @@ function go() {
 }
 
 function prepareWords() {
+    //split text into words
     var rawWords = text.match(/\b(\w+)\b/g);
     var wordCounts = {};
 
     rawWords.forEach(function (word) {
-        //TODO: leave out too common words like "the"
         word = word.toLowerCase();
+
+        //leave out too common words like "the"
         if (commonWords.test(word)) return true;
 
         if (wordCounts[word] === undefined) {
@@ -75,63 +117,215 @@ function prepareWords() {
         return b.count - a.count;
     });
 
+    // console.log(words);
     constant = (100 - 10) / (scale(words[0].count) - scale(words[words.length - 1].count));
-    console.log(words);
 }
 
 function place(word) {
-    //calculate the position
-    var angleSlice = (angleTo - angleFrom) / (angleCount - 1);
-    word.x = Math.random() * 960 - 480;
-    word.y = Math.random() * 600 - 300;
+    var angleSlice = (angleTo - angleFrom) / (angleCount - 1),
+        collision,
+        thetaIncrement = Math.PI / 4,
+        theta = thetaIncrement,
+        origin = {};
 
-    //calculate rotation
-    word.rotate = Math.round(Math.random() * angleCount) * angleSlice + angleFrom;
     word.size = calSize(word);
+    word.x = (Math.random() * 2 - 1) * 64; // ??
+    word.y = (Math.random() * 2 - 1) * 64;
+    origin.x = word.x;
+    origin.y = word.y;
+    word.rotate = Math.round(Math.random() * angleCount) * angleSlice + angleFrom;
 
-    //detect collision
-    var collide = false;
+    collision = detectCollision(word);
 
-    if (collide) return false;
+    while (collision.overlap && collision.inScope) {
+        //calculate the position
+        word.x = spiral(theta) * Math.cos(theta) + origin.x;
+        word.y = spiral(theta) * Math.sin(theta) + origin.y;
+
+        //detect collision
+        collision = detectCollision(word);
+        theta += thetaIncrement;
+    }
+
+    if (!collision.inScope) {
+        word.placed = false;
+        return;
+    }
 
     //generate fill color
-    word.fill = "rgb(" + Math.random() * 255 + ", " +
-        Math.random() * 255 + "," + Math.random() * 255 + ")";
-    return true;
+    word.fill = "rgb(" + Math.random() * 256 + ", " +
+        Math.random() * 256 + "," + Math.random() * 256 + ")";
+
+    ctx.save();
+    ctx.font = word.size + "px " + font;
+    ctx.translate(word.x, word.y);
+    ctx.rotate(word.rotate * radian);
+    ctx.fillText(word.text, 0, 0);
+    ctx.restore();
+
+    // ctx.save();
+    // ctx.translate(word.x, word.y);
+    // ctx.strokeStyle = "black";
+    // ctx.strokeRect(word.bounding.x, word.bounding.y, word.bounding.w, word.bounding.h);
+    // ctx.restore();
+
+    word.placed = true;
+}
+
+function detectCollision(word) {
+    if (word.bounding == undefined) {
+        calBoundingRect(word);
+    }
+    var dx = word.bounding.x,
+        dy = word.bounding.y,
+        w = word.bounding.w,
+        h = word.bounding.h,
+        x = dx + word.x + halfCanvasW,
+        y = dy + word.y + halfCanvasH;
+
+    if (word.x + dx < -halfCanvasW || word.x + dx + w > halfCanvasW ||
+        word.y + dy < -halfCanvasH || word.y + dy + h > halfCanvasH) {
+        word.inScope = false;
+        word.overlap = undefined;
+        return { inScope: false, overlap: undefined };
+    }
+
+    ctx.save();
+    ctx.translate(word.x, word.y);
+    var pixels = ctx.getImageData(x, y, w, h).data; //this use absolute coords = =...
+    ctx.restore();
+
+
+    tmpCtx.save();
+    tmpCtx.clearRect(-halfCanvasW, -halfCanvasH, canvas.width, canvas.height);
+    tmpCtx.font = word.size + "px " + font;
+    tmpCtx.translate(word.x, word.y);
+    tmpCtx.rotate(word.rotate * radian);
+    tmpCtx.fillText(word.text, 0, 0);
+    var tmpPixels = tmpCtx.getImageData(x, y, w, h).data;
+    tmpCtx.restore();
+
+    // var countTmp = 0,
+    //     count = 0;
+    var len = pixels.length;
+    for (var i = 0; i < len; i += 4) {
+        if (tmpPixels[i] && pixels[i]) {
+            word.inScope = true;
+            word.overlap = true;
+            return { inScope: true, overlap: true };
+        }
+    //     if (tmpPixels[i]) {
+    //         countTmp++;
+    //     }
+    //     if (pixels[i]) {
+    //         count++;
+    //     }
+    }
+
+    // console.log(pixels.length, count);
+    // console.log(tmpPixels.length, countTmp);
+    word.inScope = true;
+    word.overlap = false;
+
+    return { inScope: true, overlap: false };
+}
+
+function calBoundingRect(word) {
+    ctx.save();
+    ctx.font = word.size + "px " + font;
+    var textW = ctx.measureText(word.text).width,
+        textH = word.size,
+        sin = Math.abs(Math.sin(word.rotate * radian)),
+        cos = Math.abs(Math.cos(word.rotate * radian)),
+        boundingW = textW * cos + textH * sin,
+        boundingH = textW * sin + textH * cos,
+        boundingY = - boundingH + textW / 2 * sin,
+        boundingX = (word.rotate > 0)
+            ? - textW / 2 * cos
+            : - boundingW + textW / 2 * cos;
+    word.bounding = {
+        w: boundingW,
+        h: boundingH,
+        y: boundingY,
+        x: boundingX
+    }
+    ctx.restore();
 }
 
 function display() {
-    var texts = [];
+    var text;
+    var numPlaced = 0;
     words.forEach(function (word) {
-        texts.push('<text transform="translate(' + word.x + ',' + word.y +
-            ') rotate(' + word.rotate + ')" style="font-size: ' + word.size +
-            'px; font-family: ' + font + '; fill: ' + word.fill + ';">' + word.text + '</text>');
+        if (word.placed == false) return true;
+        text = document.createElementNS(svgNS, "text");
+        $(text)
+            .attr("transform", 'translate(' + [word.x, word.y] +
+                ') rotate(' + word.rotate + ')')
+            .attr("text-anchor", "middle")
+            .css({
+                "font-size": word.size + "px",
+                "font-family": font,
+                "fill": word.fill
+            })
+            .text(word.text);
+        g.appendChild(text);
+        numPlaced++;
+
+        // var rect = document.createElementNS(svgNS, "rect");
+        // $(rect)
+        //     .attr({
+        //         "transform": 'translate(' + [word.x, word.y] + ')',
+        //         "x": word.bounding.x,
+        //         "y": word.bounding.y,
+        //         "width": word.bounding.w,
+        //         "height": word.bounding.h
+        //     })
+        //     .css({
+        //         "fill": "none",
+        //         "stroke": "black",
+        //         "stroke-width": "1"
+        //     });
+        // g.appendChild(rect);
+
+        if (numPlaced === max) return false;
     });
-    g.innerHTML = texts.join("");
+
+    // var circle = document.createElementNS(svgNS, "circle");
+    // $(circle)
+    //     .attr({
+    //         "cx": 0,
+    //         "cy": 0,
+    //         "r": 5
+    //     })
+    //     .css({
+    //         "fill": "black"
+    //     });
+    // g.appendChild(circle);
+
+    console.log(numPlaced);
 }
 
-function selectScale(selector) {
-    switch (selector) {
-        case "linear":
-            return function (n) {
-                return n;
-            }
-            break;
-        case "sqrt":
-            return function (n) {
-                return Math.sqrt(n);
-            }
-            break;
-        case "log":
-            return function (n) {
-                return Math.log(n);
-            }
-            break;
-        default:
-            break;
+var spirals = {
+    archimedean: function (theta) {
+        return theta * 1;
+    },
+    rectangular: function (theta) {
+        return theta * 1;
     }
-}
+};
+
+var scales = {
+    "linear": function (n) {
+        return n;
+    },
+    "sqrt": function (n) {
+        return Math.sqrt(n);
+    },
+    "log": function (n) {
+        return Math.log(n);
+    }
+};
 
 function calSize(word) {
-    return constant * (scale(word.count) - scale(words[0].count)) + 100;
-};
+    return Math.round(constant * (scale(word.count) - scale(words[0].count))) + 100;
+}
