@@ -5,7 +5,6 @@ var max,
     spiral, //
     scale,
     font,
-    words,
     g,
     svgNS = "http://www.w3.org/2000/svg",
     ctx,
@@ -45,13 +44,12 @@ $(document).ready(function () {
     // $("body").prepend(canvas);
 
     $("#form").submit(function () {
-        init();
-        go();
-        return false;
+        var words = init();
+        start(words);
     });
 
-    init();
-    go();
+    var words = init();
+    start(words);
 });
 
 function init() {
@@ -66,32 +64,32 @@ function init() {
     spiral = spirals[$("input[name='spiral']").val()];
     scale = scales[$("input[name='scale']").val()];
     font = $("#font").val();
-    words = [];
     g.innerHTML = "";
     ctx.clearRect(-halfCanvasH, -halfCanvasH, canvasW, canvasH);
     ctx.fillStyle = ctx.strokeStyle = "red";
     tmpCtx.fillStyle = tmpCtx.strokeStyle = "red";
 
-    prepareWords(text);
-    calSize = prepareCalSize();
+    var words = prepareWords(text);
+    calSize = prepareCalSize(words);
     calColor = prepareCalColor();
     calRotate = getCalRotate(angleCount, angleFrom, angleTo);
+
+    return words;
 }
 
-function go() {
-    var numPlaced = 0,
+function start(words) {
+    var wordsToShow = [],
         len = words.length,
         word;
     for (var i = 0; i < len; i++) {
         word = words[i];
-        place(word);
-        if (word.placed) {
-            numPlaced++;
-            if (numPlaced == max) break;
+        if (place(word)) {
+            wordsToShow.push(word);
+            if (wordsToShow.length == max) break;
         }
     }
 
-    display();
+    display(wordsToShow);
 }
 
 function prepareWords(text) {
@@ -99,7 +97,8 @@ function prepareWords(text) {
     var rawWords = text.match(/\b(\w+)\b/g),
         wordCounts = {},
         len = rawWords.length,
-        word;
+        word,
+        words = [];
 
     for (var i = 0; i < len; i++) {
         word = rawWords[i];
@@ -122,6 +121,8 @@ function prepareWords(text) {
     words.sort(function (a, b) {
         return b.count - a.count;
     });
+
+    return words;
 }
 
 function place(word) {
@@ -149,7 +150,7 @@ function place(word) {
     );
     collision = detectCollision(word);
 
-    while (!(!collision.overlap && collision.inScope) && r2 <= r2Max) {
+    while ((collision.overlap || !collision.inScope) && r2 <= r2Max) {
         //calculate the position
         word.x = spiral(theta) * Math.cos(theta) + origin.x;
         word.y = spiral(theta) * Math.sin(theta) + origin.y;
@@ -161,8 +162,8 @@ function place(word) {
     }
 
     if (!collision.inScope) {
-        word.placed = false;
-        return;
+        // word.placed = false;
+        return false;
     }
 
     word.fill = calColor(word);
@@ -180,7 +181,8 @@ function place(word) {
     // ctx.strokeRect(word.bounding.x, word.bounding.y, word.bounding.w, word.bounding.h);
     // ctx.restore();
 
-    word.placed = true;
+    // word.placed = true;
+    return true;
 }
 
 function calR2(p1, p2) {
@@ -282,15 +284,13 @@ function calBoundingRect(word) {
     // for(var i=0;i<boundingH)
 }
 
-function display() {
+function display(wordsToShow) {
     var text,
-        numPlaced = 0,
-        len = words.length,
+        len = wordsToShow.length,
         word,
         radian = Math.PI / 180;
     for (var i = 0; i < len; i++) {
-        word = words[i];
-        if (word.placed == false) continue;
+        word = wordsToShow[i];
         text = document.createElementNS(svgNS, "text");
         $(text)
             .attr("transform", 'translate(' + [word.x, word.y] +
@@ -319,9 +319,6 @@ function display() {
         //         "stroke-width": "1"
         //     });
         // g.appendChild(rect);
-
-        numPlaced++;
-        if (numPlaced == max) break;
     }
 
     // var circle = document.createElementNS(svgNS, "circle");
@@ -335,8 +332,6 @@ function display() {
     //         "fill": "black"
     //     });
     // g.appendChild(circle);
-
-    console.log(numPlaced);
 }
 
 var spirals = {
@@ -360,7 +355,7 @@ var scales = {
     }
 };
 
-function prepareCalSize() {
+function prepareCalSize(words) {
     var domain = {
         min: scale(words[words.length - 1].count),
         max: scale(words[0].count)
