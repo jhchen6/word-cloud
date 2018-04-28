@@ -12,9 +12,7 @@
 </head>
 
 <body>
-  <svg id="vis" width="960" height="600" overflow="visible">
-    <g transform="translate(480, 300)"></g>
-  </svg>
+  <svg id="vis" width="960" height="600" overflow="visible"></svg>
 
   <form id="form">
     <p style="position: absolute; right: 0; top: 0" id="status"></p>
@@ -67,12 +65,12 @@
     <div style="float: right; text-align: right">
       <p>
         <label for="max">Number of words:</label>
-        <input type="number" value="250" min="1" id="max">
+        <input type="number" value="200" min="1" id="max">
       </p>
-      <p>
+      <!-- <p>
         <label for="per-line">
           <input type="checkbox" id="per-line"> One word per line</label>
-      </p>
+      </p> -->
     </div>
 
     <div style="float: left">
@@ -80,8 +78,8 @@
         <label>Spiral:</label>
         <label for="archimedean">
           <input type="radio" name="spiral" id="archimedean" value="archimedean" checked="checked"> Archimedean</label>
-        <label for="rectangular">
-          <input type="radio" name="spiral" id="rectangular" value="rectangular"> Rectangular</label>
+        <!-- <label for="rectangular">
+          <input type="radio" name="spiral" id="rectangular" value="rectangular"> Rectangular</label> -->
       </p>
       <p>
         <label for="scale">Scale:</label>
