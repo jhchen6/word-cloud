@@ -23,7 +23,8 @@ $(document).ready(function () {
     $("svg")[0].appendChild(g);
 
     var canvas = document.createElement("canvas");
-    $(canvas).attr("width", 960)
+    $(canvas)
+        .attr("width", 960)
         .attr("height", 600);
     ctx = canvas.getContext("2d");
     ctx.translate(480, 300);
@@ -34,7 +35,8 @@ $(document).ready(function () {
     halfCanvasH = canvasH / 2;
 
     var tmpCanvas = document.createElement("canvas");
-    $(tmpCanvas).attr("width", 960)
+    $(tmpCanvas)
+        .attr("width", 960)
         .attr("height", 600);
     tmpCtx = tmpCanvas.getContext("2d");
     tmpCtx.translate(480, 300);
@@ -43,7 +45,12 @@ $(document).ready(function () {
     // $("body").prepend(tmpCanvas);
     // $("body").prepend(canvas);
 
-    $("#form").submit(function () {
+    // $("#form").submit(function () {
+    //     var words = init();
+    //     start(words);
+    //     return false;
+    // });
+    $("#go").click(function () {
         var words = init();
         start(words);
     });
@@ -54,25 +61,42 @@ $(document).ready(function () {
 
 function init() {
     var text = $("#text").val(),
-        angleCount = +$("#angle-count").val(),
-        angleFrom = +$("#angle-from").val(),
-        angleTo = +$("#angle-to").val();
-    if (angleFrom < -90) angleFrom = -90;
-    if (angleTo > 90) angleTo = 90;
-
+        angleCount = $("#angle-count"),
+        angleFrom = $("#angle-from"),
+        angleTo = $("#angle-to"),
+        angleCountVal = +angleCount.val(),
+        angleFromVal = +angleFrom.val(),
+        angleToVal = +angleTo.val();
+    if (angleCountVal <= 0) {
+        angleCountVal = 1;
+        angleCount.val(angleCountVal);
+    }
+    if (angleFromVal < -90) {
+        angleFromVal = -90;
+        angleFrom.val(angleFromVal);
+    }
+    if (angleCountVal === 1) {
+        angleToVal = angleFromVal;
+        angleTo.val(angleToVal);
+    }
+    if (angleToVal > 90) {
+        angleToVal = 90;
+        angleTo.val(angleToVal);
+    }
     max = +$("#max").val();
-    spiral = spirals[$("input[name='spiral']").val()];
-    scale = scales[$("input[name='scale']").val()];
+    var spirals = prepareSpirals();
+    spiral = spirals[$("input[name='spiral']:checked").val()];
+    scale = scales[$("input[name='scale']:checked").val()];
     font = $("#font").val();
     g.innerHTML = "";
-    ctx.clearRect(-halfCanvasH, -halfCanvasH, canvasW, canvasH);
+    ctx.clearRect(-halfCanvasW, -halfCanvasH, canvasW, canvasH);
     ctx.fillStyle = ctx.strokeStyle = "red";
     tmpCtx.fillStyle = tmpCtx.strokeStyle = "red";
 
     var words = prepareWords(text);
     calSize = prepareCalSize(words);
     calColor = prepareCalColor();
-    calRotate = getCalRotate(angleCount, angleFrom, angleTo);
+    calRotate = getCalRotate(angleCountVal, angleFromVal, angleToVal);
 
     return words;
 }
@@ -113,16 +137,14 @@ function prepareWords(text) {
         if (commonWords.test(word)) continue;
 
         if (wordCounts[word] === undefined) {
-            wordCounts[word] = 1;
+            wordCounts[word] = 0;
         }
-        else {
-            wordCounts[word]++;
-        }
+        wordCounts[word]++;
     }
 
     for (var word in wordCounts) {
         var count = wordCounts[word];
-        words.push({ text: word, count: count, });
+        words.push({ text: word, "count": count });
     }
     words.sort(function (a, b) {
         return b.count - a.count;
@@ -133,11 +155,12 @@ function prepareWords(text) {
 
 function place(word) {
     var collision,
-        thetaIncrement = Math.PI / 8,
-        theta = thetaIncrement,
+        thetaIncrement = Math.PI / 8 * (Math.random() < 0.5 ? -1 : 1),
+        theta = 0,
         origin = {},
         r2,
-        r2Max;
+        r2Max,
+        d;
 
     //init word position
     word.x = (Math.random() * 2 - 1) * 64; // ??
@@ -155,8 +178,9 @@ function place(word) {
 
     while ((collision.overlap || collision.overflow) && r2 <= r2Max) {
         //calculate the position
-        word.x = spiral(theta) * Math.cos(theta) + origin.x;
-        word.y = spiral(theta) * Math.sin(theta) + origin.y;
+        d = spiral(theta);
+        word.x = d.x + origin.x;
+        word.y = d.y + origin.y;
 
         //detect collision
         collision = detectCollision(word);
@@ -165,7 +189,6 @@ function place(word) {
     }
 
     if (collision.overflow) {
-        // word.placed = false;
         return false;
     }
 
@@ -182,7 +205,6 @@ function place(word) {
     // ctx.strokeRect(word.bounding.x, word.bounding.y, word.bounding.w, word.bounding.h);
     // ctx.restore();
 
-    // word.placed = true;
     return true;
 }
 
@@ -205,39 +227,17 @@ function detectCollision(word) {
 
     if (x < 0 || x + w > canvasW ||
         y < 0 || y + h > canvasH) {
-        // word.overflow = true;
-        // word.overlap = undefined;
         return { overflow: true, overlap: undefined };
     }
 
-    ctx.save();
-    ctx.translate(word.x, word.y);
     var pixels = ctx.getImageData(x, y, w, h).data; //this uses absolute coords = =...
-    ctx.restore();
 
-    // var countTmp = 0,
-    //     count = 0;
     var len = pixels.length;
     for (var i = 0; i < len; i += 4) {
         if (word.sprite[i] && pixels[i]) {
-            // word.overflow = false;
-            // word.overlap = true;
             return { overflow: false, overlap: true };
         }
-        //     if (tmpPixels[i]) {
-        //         countTmp++;
-        //     }
-        //     if (pixels[i]) {
-        //         count++;
-        //     }
     }
-
-    // console.log(pixels.length, count);
-    // console.log(tmpPixels.length, countTmp);
-
-    // word.overflow = false;
-    // word.overlap = false;
-
     return { overflow: false, overlap: false };
 }
 
@@ -292,44 +292,66 @@ function display(wordsToShow) {
             .text(word.text);
         g.appendChild(text);
 
-        // var rect = document.createElementNS(svgNS, "rect");
-        // $(rect)
-        //     .attr({
-        //         "transform": 'translate(' + [word.x, word.y] + ')',
-        //         "x": word.bounding.x,
-        //         "y": word.bounding.y,
-        //         "width": word.bounding.w,
-        //         "height": word.bounding.h
-        //     })
-        //     .css({
-        //         "fill": "none",
-        //         "stroke": "black",
-        //         "stroke-width": "1"
-        //     });
-        // g.appendChild(rect);
+        // drawRect(word, word.bounding.x, word.bounding.y, word.bounding.w, word.bounding.h);
     }
-
-    // var circle = document.createElementNS(svgNS, "circle");
-    // $(circle)
-    //     .attr({
-    //         "cx": 0,
-    //         "cy": 0,
-    //         "r": 5
-    //     })
-    //     .css({
-    //         "fill": "black"
-    //     });
-    // g.appendChild(circle);
+    // drawCircle(0, 0, 5);
 }
 
-var spirals = {
-    archimedean: function (theta) {
-        return theta * 5;
-    },
-    rectangular: function (theta) { //TODO
-        return theta * 5;
-    }
-};
+function prepareSpirals() {
+    var ratio = canvasW / canvasH;
+
+    return {
+        archimedean: function (theta) {
+            var r = theta * 5;
+            return { x: r * Math.cos(theta) * ratio, y: r * Math.sin(theta) };
+        },
+        rectangular: (function () { // so awkward...
+            var dy = 25,
+                dx = dy * ratio,
+                x = 0,
+                y = 0,
+                i = 0,
+                len = 1,
+                dir = 0;
+            return function (theta) {
+                if (theta == 0) {
+                    x = 0,
+                        y = 0,
+                        i = 0,
+                        len = 1,
+                        dir = 0;
+                }
+                if (i >= len) {
+                    i = 0;
+                    if (dir % 2 == 0) {
+                        len++;
+                    }
+                    dir++;
+                    dir %= 4;
+                }
+                if (theta > 0) {
+                    switch (dir) {
+                        case 0: x += dx; break;
+                        case 1: y -= dy; break;
+                        case 2: x -= dx; break;
+                        case 3: y += dy; break;
+                    }
+                }
+                else {
+                    switch (dir) {
+                        case 0: y -= dy; break;
+                        case 1: x += dx; break;
+                        case 2: y += dy; break;
+                        case 3: x -= dx; break;
+                    }
+                }
+                // console.log(dir);
+                i++;
+                return { "x": x, "y": y };
+            }
+        })()
+    };
+}
 
 var scales = {
     "linear": function (n) {
@@ -349,38 +371,57 @@ function prepareCalSize(words) {
         max: scale(words[0].count)
     },
         range = { min: 10, max: 100 },
+        constant = 0;
+    if (domain.min != domain.max) {
         constant = (range.min - range.max) / (domain.min - domain.max);
+    }
 
     return function (word) {
         return constant * (scale(word.count) - domain.max) + range.max;
     }
-
-    // calColor = function (word) { //grey scale...
-    //     return "rgb(" + colorScale(word) + ", " +
-    //         colorScale(word) + "," + colorScale(word) + ")";
-    // }
-
-    // calColor = function (word) { //avoid 255,255,255
-    //     return "rgb(" + Math.random() * 255 + ", " +
-    //         Math.random() * 255 + "," + Math.random() * 255 + ")";
-    // }
-
-    // function colorScale(word) {
-    //     return colorConst * (scale(word.count) - domain.max) + colorRange.max;
-    // }
 }
 
 function prepareCalColor() {
-    return function () { //avoid 255,255,255
+    return function () { //avoid rgb(255,255,255) white
         return "rgb(" + Math.random() * 255 + ", " +
             Math.random() * 255 + "," + Math.random() * 255 + ")";
     }
 }
 
 function getCalRotate(angleCount, angleFrom, angleTo) {
-    var angleSlice = (angleTo - angleFrom) / (angleCount - 1),
-        radian = Math.PI / 180;
-    return function () {
-        return (Math.floor(Math.random() * angleCount) * angleSlice + angleFrom) * radian;
+    var radian = Math.PI / 180,
+        angleSlice;
+
+    if (angleCount === 1) {
+        return function () {
+            return angleFrom * radian;
+        }
     }
+    else {
+        angleSlice = (angleTo - angleFrom) / (angleCount - 1);
+        return function () {
+            return (Math.floor(Math.random() * angleCount) * angleSlice + angleFrom) * radian;
+        }
+    }
+}
+
+function drawCircle(cx, cy, r) {
+    var circle = document.createElementNS(svgNS, "circle");
+    $(circle)
+        .attr({ "cx": cx, "cy": cy, "r": r })
+        .css("fill", "black");
+    g.appendChild(circle);
+}
+
+function drawRect(word, x, y, w, h) {
+    var rect = document.createElementNS(svgNS, "rect");
+    $(rect).attr("transform", 'translate(' + [word.x, word.y] + ')')
+        .attr("x", x)
+        .attr("y", y)
+        .attr("width", w)
+        .attr("height", h)
+        .css("fill", "none")
+        .css("stroke", "black")
+        .css("stroke-width", "1");
+    g.appendChild(rect);
 }

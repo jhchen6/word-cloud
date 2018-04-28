@@ -14,7 +14,7 @@
 <body>
   <svg id="vis" width="960" height="600" overflow="visible"></svg>
 
-  <form id="form">
+  <!-- <form id="form"> -->
     <p style="position: absolute; right: 0; top: 0" id="status"></p>
     <div style="text-align: center">
       <div id="custom-area">
@@ -55,7 +55,8 @@
               
                   
           </textarea>
-          <button id="go" type="submit">Go!</button>
+          <!-- <button id="go" type="submit">Go!</button> -->
+          <button id="go">Go!</button>
         </p>
       </div>
     </div>
@@ -65,7 +66,7 @@
     <div style="float: right; text-align: right">
       <p>
         <label for="max">Number of words:</label>
-        <input type="number" value="200" min="1" id="max">
+        <input type="number" value="250" min="1" id="max">
       </p>
       <!-- <p>
         <label for="per-line">
@@ -78,8 +79,8 @@
         <label>Spiral:</label>
         <label for="archimedean">
           <input type="radio" name="spiral" id="archimedean" value="archimedean" checked="checked"> Archimedean</label>
-        <!-- <label for="rectangular">
-          <input type="radio" name="spiral" id="rectangular" value="rectangular"> Rectangular</label> -->
+        <label for="rectangular">
+          <input type="radio" name="spiral" id="rectangular" value="rectangular"> Rectangular</label>
       </p>
       <p>
         <label for="scale">Scale:</label>
@@ -105,7 +106,7 @@
         <label for="angle-to">to</label>
         <input type="number" id="angle-to" value="60" min="-90" max="90"> °</p>
     </div>
-  </form>
+  <!-- </form> -->
 </body>
 
 </html>
