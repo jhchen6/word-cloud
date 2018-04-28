@@ -81,8 +81,13 @@ function start(words) {
     var wordsToShow = [],
         len = words.length,
         word;
+
     for (var i = 0; i < len; i++) {
         word = words[i];
+        word.size = calSize(word);
+        word.rotate = calRotate();
+        word.fill = calColor();
+
         if (place(word)) {
             wordsToShow.push(word);
             if (wordsToShow.length == max) break;
@@ -115,8 +120,9 @@ function prepareWords(text) {
         }
     }
 
-    for (var wordCount in wordCounts) {
-        words.push({ text: wordCount, count: wordCounts[wordCount] });
+    for (var word in wordCounts) {
+        var count = wordCounts[word];
+        words.push({ text: word, count: count, });
     }
     words.sort(function (a, b) {
         return b.count - a.count;
@@ -133,9 +139,6 @@ function place(word) {
         r2,
         r2Max;
 
-    word.size = calSize(word);
-    word.rotate = calRotate(word);
-
     //init word position
     word.x = (Math.random() * 2 - 1) * 64; // ??
     word.y = (Math.random() * 2 - 1) * 64;
@@ -150,7 +153,7 @@ function place(word) {
     );
     collision = detectCollision(word);
 
-    while ((collision.overlap || !collision.inScope) && r2 <= r2Max) {
+    while ((collision.overlap || collision.overflow) && r2 <= r2Max) {
         //calculate the position
         word.x = spiral(theta) * Math.cos(theta) + origin.x;
         word.y = spiral(theta) * Math.sin(theta) + origin.y;
@@ -161,12 +164,10 @@ function place(word) {
         theta += thetaIncrement;
     }
 
-    if (!collision.inScope) {
+    if (collision.overflow) {
         // word.placed = false;
         return false;
     }
-
-    word.fill = calColor(word);
 
     ctx.save();
     ctx.font = word.size + "px " + font;
@@ -199,40 +200,29 @@ function detectCollision(word) {
         dy = word.bounding.y,
         w = word.bounding.w,
         h = word.bounding.h,
-        rectX = word.x + dx,
-        rectY = word.y + dy,
-        absX = rectX + halfCanvasW,
-        absY = rectY + halfCanvasH;
+        x = word.x + dx + halfCanvasW,
+        y = word.y + dy + halfCanvasH;
 
-    if (absX < 0 || absX + w > canvasW ||
-        absY < 0 || absY + h > canvasH) {
-        // word.inScope = false;
+    if (x < 0 || x + w > canvasW ||
+        y < 0 || y + h > canvasH) {
+        // word.overflow = true;
         // word.overlap = undefined;
-        return { inScope: false, overlap: undefined };
+        return { overflow: true, overlap: undefined };
     }
 
     ctx.save();
     ctx.translate(word.x, word.y);
-    var pixels = ctx.getImageData(absX, absY, w, h).data; //this uses absolute coords = =...
+    var pixels = ctx.getImageData(x, y, w, h).data; //this uses absolute coords = =...
     ctx.restore();
-
-    tmpCtx.save();
-    tmpCtx.clearRect(-halfCanvasW, -halfCanvasH, canvasW, canvasH);
-    tmpCtx.font = word.size + "px " + font;
-    tmpCtx.translate(word.x, word.y);
-    tmpCtx.rotate(word.rotate);
-    tmpCtx.fillText(word.text, 0, 0);
-    var tmpPixels = tmpCtx.getImageData(absX, absY, w, h).data;
-    tmpCtx.restore();
 
     // var countTmp = 0,
     //     count = 0;
     var len = pixels.length;
     for (var i = 0; i < len; i += 4) {
-        if (tmpPixels[i] && pixels[i]) {
-            // word.inScope = true;
+        if (word.sprite[i] && pixels[i]) {
+            // word.overflow = false;
             // word.overlap = true;
-            return { inScope: true, overlap: true };
+            return { overflow: false, overlap: true };
         }
         //     if (tmpPixels[i]) {
         //         countTmp++;
@@ -245,10 +235,10 @@ function detectCollision(word) {
     // console.log(pixels.length, count);
     // console.log(tmpPixels.length, countTmp);
 
-    // word.inScope = true;
+    // word.overflow = false;
     // word.overlap = false;
 
-    return { inScope: true, overlap: false };
+    return { overflow: false, overlap: false };
 }
 
 function calBoundingRect(word) {
@@ -265,23 +255,21 @@ function calBoundingRect(word) {
             ? - textW / 2 * cos
             : - boundingW + textW / 2 * cos;
     word.bounding = {
+        x: boundingX,
+        y: boundingY,
         w: boundingW,
         h: boundingH,
-        y: boundingY,
-        x: boundingX
     }
     ctx.restore();
 
-    // tmpCtx.save();
-    // tmpCtx.clearRect(-halfCanvasW, -halfCanvasH, canvasW, canvasH);
-    // tmpCtx.font = word.size + "px " + font;
-    // tmpCtx.rotate(word.rotate);
-    // tmpCtx.fillText(word.text, 0, 0);
-    // var tmpPixels = tmpCtx.getImageData(boundingX + halfCanvasW, 
-    //     boundingY + halfCanvasH, boundingW, boundingH).data;
-    // tmpCtx.restore();
-
-    // for(var i=0;i<boundingH)
+    tmpCtx.save();
+    tmpCtx.clearRect(-halfCanvasW, -halfCanvasH, canvasW, canvasH);
+    tmpCtx.font = word.size + "px " + font;
+    tmpCtx.rotate(word.rotate);
+    tmpCtx.fillText(word.text, 0, 0); //middle of the canvas
+    word.sprite = tmpCtx.getImageData(boundingX + halfCanvasW,
+        boundingY + halfCanvasH, boundingW, boundingH).data;
+    tmpCtx.restore();
 }
 
 function display(wordsToShow) {
@@ -383,7 +371,7 @@ function prepareCalSize(words) {
 }
 
 function prepareCalColor() {
-    return function (word) { //avoid 255,255,255
+    return function () { //avoid 255,255,255
         return "rgb(" + Math.random() * 255 + ", " +
             Math.random() * 255 + "," + Math.random() * 255 + ")";
     }
@@ -392,7 +380,7 @@ function prepareCalColor() {
 function getCalRotate(angleCount, angleFrom, angleTo) {
     var angleSlice = (angleTo - angleFrom) / (angleCount - 1),
         radian = Math.PI / 180;
-    return function (word) {
+    return function () {
         return (Math.floor(Math.random() * angleCount) * angleSlice + angleFrom) * radian;
     }
 }
