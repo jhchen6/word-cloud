@@ -232,6 +232,7 @@ function detectCollision(word) {
 
     var pixels = ctx.getImageData(x, y, w, h).data; //this uses absolute coords = =...
 
+    // console.log(pixels.length, word.sprite.length);
     var len = pixels.length;
     for (var i = 0; i < len; i += 4) {
         if (word.sprite[i] && pixels[i]) {
@@ -254,13 +255,14 @@ function calBoundingRect(word) {
         boundingX = (word.rotate > 0)
             ? - textW / 2 * cos
             : - boundingW + textW / 2 * cos;
+    ctx.restore();
+
     word.bounding = {
         x: boundingX,
         y: boundingY,
         w: boundingW,
         h: boundingH,
     }
-    ctx.restore();
 
     tmpCtx.save();
     tmpCtx.clearRect(-halfCanvasW, -halfCanvasH, canvasW, canvasH);
@@ -270,6 +272,26 @@ function calBoundingRect(word) {
     word.sprite = tmpCtx.getImageData(boundingX + halfCanvasW,
         boundingY + halfCanvasH, boundingW, boundingH).data;
     tmpCtx.restore();
+
+    // var empty,
+    //     emptyLine = 0;
+    // for (var i = 0; i < boundingH; i++) {
+    //     empty = true;
+    //     for (var j = 0; j < boundingW; j++) {
+    //         if (word.sprite[(i * boundingW + j) * 4] != 0) {
+    //             empty = false;
+    //             break;
+    //         }
+    //     }
+    //     if (empty) {
+    //         emptyLine++;
+    //     }
+    // }
+    // if (emptyLine != 0 ){
+    //     word.sprite = word.sprite.subarray(emptyLine * boundingW * 4);
+    //     word.bounding.y += emptyLine;
+    //     word.bounding.h -= emptyLine;
+    // }
 }
 
 function display(wordsToShow) {
