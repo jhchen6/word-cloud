@@ -1,6 +1,8 @@
 # word-cloud
 hand coded word-cloud, a coding practice
 
+![alt example.png](https://github.com/jhchen6/word-cloud/blob/master/example.png)
+
 ### algorithm
 1. prepare words
    1. split text into words, leave out too common words
