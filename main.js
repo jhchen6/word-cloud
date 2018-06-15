@@ -6,111 +6,98 @@ var max,
     scale,
     font,
     g,
-    svgNS = "http://www.w3.org/2000/svg",
     ctx,
     tmpCtx,
-    canvasW,
-    canvasH,
-    halfCanvasW,
-    halfCanvasH,
+    width = 960,
+    height = 600,
+    halfW = width / 2,
+    halfH = height / 2,
     calSize,
     calColor,
-    calRotate;
+    calRotate,
+    words,
+    radian = Math.PI / 180;
 
-$(document).ready(function () {
-    g = document.createElementNS(svgNS, "g");
-    $(g).attr("transform", 'translate(480, 300)');
-    $("svg")[0].appendChild(g);
+var svg = d3.select("svg")
+    .attr("width", width)
+    .attr("height", height);
 
-    var canvas = document.createElement("canvas");
-    $(canvas)
-        .attr("width", 960)
-        .attr("height", 600);
-    ctx = canvas.getContext("2d");
-    ctx.translate(480, 300);
-    ctx.textAlign = "center";
-    canvasW = canvas.width;
-    canvasH = canvas.height;
-    halfCanvasW = canvasW / 2;
-    halfCanvasH = canvasH / 2;
+g = svg.append("g")
+    .attr("transform", "translate(" + [halfW, halfH] + ")");
 
-    var tmpCanvas = document.createElement("canvas");
-    $(tmpCanvas)
-        .attr("width", 960)
-        .attr("height", 600);
-    tmpCtx = tmpCanvas.getContext("2d");
-    tmpCtx.translate(480, 300);
-    tmpCtx.textAlign = "center";
+var canvas = d3.create("canvas")
+    .attr("width", width)
+    .attr("height", height);
+ctx = canvas.node().getContext("2d");
+ctx.translate(halfW, halfH);
+ctx.textAlign = "center";
 
-    // $("body").prepend(tmpCanvas);
-    // $("body").prepend(canvas);
+var tmpCanvas = d3.create("canvas")
+    .attr("width", width)
+    .attr("height", height);
+tmpCtx = tmpCanvas.node().getContext("2d");
+tmpCtx.translate(halfW, halfH);
+tmpCtx.textAlign = "center";
 
-    // $("#form").submit(function () {
-    //     var words = init();
-    //     start(words);
-    //     return false;
-    // });
-    $("#go").click(function () {
-        var words = init();
-        start(words);
-    });
-
-    var words = init();
-    start(words);
+d3.select("#go").on("click", function () {
+    init();
+    run();
 });
 
+init();
+run();
+
 function init() {
-    var text = $("#text").val(),
-        angleCount = $("#angle-count"),
-        angleFrom = $("#angle-from"),
-        angleTo = $("#angle-to"),
-        angleCountVal = +angleCount.val(),
-        angleFromVal = +angleFrom.val(),
-        angleToVal = +angleTo.val();
+    var text = d3.select("#text").property("value"),
+        angleCount = d3.select("#angle-count"),
+        angleFrom = d3.select("#angle-from"),
+        angleTo = d3.select("#angle-to"),
+        angleCountVal = +angleCount.property("value"),
+        angleFromVal = +angleFrom.property("value"),
+        angleToVal = +angleTo.property("value");
     if (angleCountVal <= 0) {
         angleCountVal = 1;
-        angleCount.val(angleCountVal);
+        angleCount.property("value", angleCountVal);
     }
     if (angleFromVal < -90) {
         angleFromVal = -90;
-        angleFrom.val(angleFromVal);
+        angleFrom.property("value", angleFromVal);
     }
     if (angleCountVal === 1) {
         angleToVal = angleFromVal;
-        angleTo.val(angleToVal);
+        angleTo.property("value", angleToVal);
     }
     if (angleToVal > 90) {
         angleToVal = 90;
-        angleTo.val(angleToVal);
+        angleTo.property("value", angleToVal);
     }
-    max = +$("#max").val();
+    max = +d3.select("#max").property("value");
     var spirals = prepareSpirals();
-    spiral = spirals[$("input[name='spiral']:checked").val()];
-    scale = scales[$("input[name='scale']:checked").val()];
-    font = $("#font").val();
-    g.innerHTML = "";
-    ctx.clearRect(-halfCanvasW, -halfCanvasH, canvasW, canvasH);
+    spiral = spirals[d3.select("input[name='spiral']:checked").property("value")];
+    scale = getScale(d3.select("input[name='scale']:checked").property("value"));
+    font = d3.select("#font").property("value");
+    // g.html("");
+    ctx.clearRect(-halfW, -halfH, width, height);
     ctx.fillStyle = ctx.strokeStyle = "red";
     tmpCtx.fillStyle = tmpCtx.strokeStyle = "red";
 
-    var words = prepareWords(text);
-    calSize = prepareCalSize(words);
-    calColor = prepareCalColor();
+    words = prepareWords(text);
+    calSize = scale.domain([words[words.length - 1].count, words[0].count])
+        .range([10, 100]);
+    calColor = d3.scaleOrdinal(d3.schemeCategory10);
     calRotate = getCalRotate(angleCountVal, angleFromVal, angleToVal);
-
-    return words;
 }
 
-function start(words) {
+function run() {
     var wordsToShow = [],
         len = words.length,
         word;
 
     for (var i = 0; i < len; i++) {
         word = words[i];
-        word.size = calSize(word);
+        word.size = calSize(word.count);
         word.rotate = calRotate();
-        word.fill = calColor();
+        word.fill = calColor(Math.floor(Math.random() * 10));
 
         if (place(word)) {
             wordsToShow.push(word);
@@ -142,7 +129,7 @@ function prepareWords(text) {
         wordCounts[word]++;
     }
 
-    for (var word in wordCounts) {
+    for (word in wordCounts) {
         var count = wordCounts[word];
         words.push({ text: word, "count": count });
     }
@@ -169,10 +156,10 @@ function place(word) {
     origin.y = word.y;
     r2 = 0;
     r2Max = Math.max(
-        calR2({ x: -halfCanvasW, y: -halfCanvasH }, origin),
-        calR2({ x: halfCanvasW, y: -halfCanvasH }, origin),
-        calR2({ x: -halfCanvasW, y: halfCanvasH }, origin),
-        calR2({ x: halfCanvasW, y: halfCanvasH }, origin)
+        calR2({ x: -halfW, y: -halfH }, origin),
+        calR2({ x: halfW, y: -halfH }, origin),
+        calR2({ x: -halfW, y: halfH }, origin),
+        calR2({ x: halfW, y: halfH }, origin)
     );
     collision = detectCollision(word);
 
@@ -198,13 +185,6 @@ function place(word) {
     ctx.rotate(word.rotate);
     ctx.fillText(word.text, 0, 0);
     ctx.restore();
-
-    // ctx.save();
-    // ctx.translate(word.x, word.y);
-    // ctx.strokeStyle = "black";
-    // ctx.strokeRect(word.bounding.x, word.bounding.y, word.bounding.w, word.bounding.h);
-    // ctx.restore();
-
     return true;
 }
 
@@ -222,17 +202,16 @@ function detectCollision(word) {
         dy = word.bounding.y,
         w = word.bounding.w,
         h = word.bounding.h,
-        x = word.x + dx + halfCanvasW,
-        y = word.y + dy + halfCanvasH;
+        x = word.x + dx + halfW,
+        y = word.y + dy + halfH;
 
-    if (x < 0 || x + w > canvasW ||
-        y < 0 || y + h > canvasH) {
+    if (x < 0 || x + w > width ||
+        y < 0 || y + h > height) {
         return { overflow: true, overlap: undefined };
     }
 
     var pixels = ctx.getImageData(x, y, w, h).data; //this uses absolute coords = =...
 
-    // console.log(pixels.length, word.sprite.length);
     var len = pixels.length;
     for (var i = 0; i < len; i += 4) {
         if (word.sprite[i] && pixels[i]) {
@@ -265,62 +244,34 @@ function calBoundingRect(word) {
     }
 
     tmpCtx.save();
-    tmpCtx.clearRect(-halfCanvasW, -halfCanvasH, canvasW, canvasH);
+    tmpCtx.clearRect(-halfW, -halfH, width, height);
     tmpCtx.font = word.size + "px " + font;
     tmpCtx.rotate(word.rotate);
     tmpCtx.fillText(word.text, 0, 0); //middle of the canvas
-    word.sprite = tmpCtx.getImageData(boundingX + halfCanvasW,
-        boundingY + halfCanvasH, boundingW, boundingH).data;
+    word.sprite = tmpCtx.getImageData(boundingX + halfW,
+        boundingY + halfH, boundingW, boundingH).data;
     tmpCtx.restore();
-
-    // var empty,
-    //     emptyLine = 0;
-    // for (var i = 0; i < boundingH; i++) {
-    //     empty = true;
-    //     for (var j = 0; j < boundingW; j++) {
-    //         if (word.sprite[(i * boundingW + j) * 4] != 0) {
-    //             empty = false;
-    //             break;
-    //         }
-    //     }
-    //     if (empty) {
-    //         emptyLine++;
-    //     }
-    // }
-    // if (emptyLine != 0 ){
-    //     word.sprite = word.sprite.subarray(emptyLine * boundingW * 4);
-    //     word.bounding.y += emptyLine;
-    //     word.bounding.h -= emptyLine;
-    // }
 }
 
 function display(wordsToShow) {
-    var text,
-        len = wordsToShow.length,
-        word,
-        radian = Math.PI / 180;
-    for (var i = 0; i < len; i++) {
-        word = wordsToShow[i];
-        text = document.createElementNS(svgNS, "text");
-        $(text)
-            .attr("transform", 'translate(' + [word.x, word.y] +
-                ') rotate(' + (word.rotate / radian) + ')')
-            .attr("text-anchor", "middle")
-            .css({
-                "font-size": word.size + "px",
-                "font-family": font,
-                "fill": word.fill
-            })
-            .text(word.text);
-        g.appendChild(text);
-
-        // drawRect(word, word.bounding.x, word.bounding.y, word.bounding.w, word.bounding.h);
-    }
-    // drawCircle(0, 0, 5);
+    var update = g.selectAll("text")
+        .data(wordsToShow);
+    update.enter().append("text")
+        .attr("text-anchor", "middle");
+    g.selectAll("text")
+        .transition()
+        .duration(1000)
+        .attr("transform", (d) => 'translate(' + [d.x, d.y] +
+            ') rotate(' + (d.rotate / radian) + ')')
+        .style("font-size", (d) => d.size + "px")
+        .style("font-family", font)
+        .style("fill", (d) => d.fill)
+        .text((d) => d.text);
+    update.exit().remove();
 }
 
 function prepareSpirals() {
-    var ratio = canvasW / canvasH;
+    var ratio = width / height;
 
     return {
         archimedean: function (theta) {
@@ -375,44 +326,17 @@ function prepareSpirals() {
     };
 }
 
-var scales = {
-    "linear": function (n) {
-        return n;
-    },
-    "sqrt": function (n) {
-        return Math.sqrt(n);
-    },
-    "log": function (n) {
-        return Math.log(n);
-    }
-};
-
-function prepareCalSize(words) {
-    var domain = {
-        min: scale(words[words.length - 1].count),
-        max: scale(words[0].count)
-    },
-        range = { min: 10, max: 100 },
-        constant = 0;
-    if (domain.min != domain.max) {
-        constant = (range.min - range.max) / (domain.min - domain.max);
-    }
-
-    return function (word) {
-        return constant * (scale(word.count) - domain.max) + range.max;
-    }
-}
-
-function prepareCalColor() {
-    return function () { //avoid rgb(255,255,255) white
-        return "rgb(" + Math.random() * 255 + ", " +
-            Math.random() * 255 + "," + Math.random() * 255 + ")";
+function getScale(name) {
+    switch (name) {
+        case "linear": return d3.scaleLinear();
+        case "sqrt": return d3.scaleSqrt();
+        case "log": return d3.scaleLog();
+        default: return d3.scaleLinear();
     }
 }
 
 function getCalRotate(angleCount, angleFrom, angleTo) {
-    var radian = Math.PI / 180,
-        angleSlice;
+    var angleSlice;
 
     if (angleCount === 1) {
         return function () {
@@ -425,25 +349,4 @@ function getCalRotate(angleCount, angleFrom, angleTo) {
             return (Math.floor(Math.random() * angleCount) * angleSlice + angleFrom) * radian;
         }
     }
-}
-
-function drawCircle(cx, cy, r) {
-    var circle = document.createElementNS(svgNS, "circle");
-    $(circle)
-        .attr({ "cx": cx, "cy": cy, "r": r })
-        .css("fill", "black");
-    g.appendChild(circle);
-}
-
-function drawRect(word, x, y, w, h) {
-    var rect = document.createElementNS(svgNS, "rect");
-    $(rect).attr("transform", 'translate(' + [word.x, word.y] + ')')
-        .attr("x", x)
-        .attr("y", y)
-        .attr("width", w)
-        .attr("height", h)
-        .css("fill", "none")
-        .css("stroke", "black")
-        .css("stroke-width", "1");
-    g.appendChild(rect);
 }

@@ -3,16 +3,13 @@
 
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>Word Cloud</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" type="text/css" media="screen" href="main.css" />
-  <script src="https://code.jquery.com/jquery-1.9.1.min.js"></script>
-  <script src="main.js"></script>
+  <script src="https://d3js.org/d3.v5.min.js"></script>
 </head>
 
 <body>
-  <svg id="vis" width="960" height="600" overflow="visible"></svg>
+  <svg overflow="visible"></svg>
 
   <!-- <form id="form"> -->
     <p style="position: absolute; right: 0; top: 0" id="status"></p>
@@ -107,6 +104,7 @@
         <input type="number" id="angle-to" value="60" min="-90" max="90"> °</p>
     </div>
   <!-- </form> -->
+  <script src="main.js"></script>
 </body>
 
 </html>
