@@ -1,9 +1,13 @@
 # word-cloud
-hand coded word-cloud, a coding practice
 
-![alt example.png](https://github.com/jhchen6/word-cloud/blob/master/example.png)
+This is a coding practice imitating https://www.jasondavies.com/wordcloud/.
 
-### algorithm
+index.html and main.css are basically copied directly. 
+
+main.js is re-written. 
+
+## algorithm
+
 1. prepare words
    1. split text into words, leave out too common words
    2. count words
@@ -16,7 +20,8 @@ hand coded word-cloud, a coding practice
       2. detect overlap and overflow
    4. if still overlap or overflow, ignore this word
 
-### issues
+## issues
+
 * preciser split
 * common words filtering
 * preciser bounding rectangle
